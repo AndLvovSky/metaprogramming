@@ -8,7 +8,7 @@ def table(param):
         setattr(param, '_table_name', table_name)
         return param
 
-    @wraps(clz)
+    @wraps(param)
     def wrapper(clz):
         setattr(clz, '_table_name', param)
         return clz

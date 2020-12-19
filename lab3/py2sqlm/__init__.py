@@ -99,19 +99,77 @@ class Py2SQL:
         count = self._select_single(query)
         return count == 1
 
+    def save_class(self, clz):
+        self._check_is_table(clz)
+        table_name = clz._table_name
+        if table_name in self.db_tables:
+            self._update_class(clz)
+        else:
+            self._create_class(clz)
+
+    def _create_class(self, clz):
+        fields = get_class_database_fields(clz)
+        column_separator = ', \n\t\t\t\t'
+        query = f"""
+            create table {clz._table_name} (
+                {column_separator.join([field.definition for field in fields])}  
+            )  
+        """
+        logging.debug(query)
+        self._execute(query)
+
+    def _update_class(self, clz):
+        field_names = set([field.name for field in get_class_database_fields(clz)])
+        actual_field_names = set([field[1] for field in self.db_table_structure(clz._table_name)])
+        field_names_to_add = []
+        field_names_to_drop = []
+        for field_name in field_names:
+            if not field_name in actual_field_names:
+                field_names_to_add.append(field_name)
+        for field_name in actual_field_names:
+            if not field_name in field_names:
+                field_names_to_drop.append(field_name)
+        self._add_columns(clz, field_names_to_add)
+        self._drop_columns(clz, field_names_to_drop)
+
+    def _add_columns(self, clz, field_names):
+        if not field_names:
+            return
+        fields = [clz.__dict__[field_name] for field_name in field_names]
+        delimiter = ', \n\t\t\t'
+        query = f"""
+            alter table {clz._table_name}
+            {delimiter.join([f'add {field.definition}' for field in fields])}
+        """
+        logging.debug(query)
+        self._execute(query)
+
+    def _drop_columns(self, clz, field_names):
+        if not field_names:
+            return
+        delimiter = ', \n\t\t\t'
+        query = f"""
+            alter table {clz._table_name}
+            {delimiter.join([f'drop column {field_name}' for field_name in field_names])}
+        """
+        logging.debug(query)
+        self._execute(query)
+
     def _select_all(self, query):
-        cursor = self.connection.cursor()
-        cursor.execute(query)
-        return cursor.fetchall()
+        with self.connection.cursor() as cursor:
+            cursor.execute(query)
+            values = cursor.fetchall()
+        return values
 
     def _select_single(self, query):
-        cursor = self.connection.cursor()
-        cursor.execute(query)
-        return cursor.fetchone()[0]
+        with self.connection.cursor() as cursor:
+            cursor.execute(query)
+            value = cursor.fetchone()[0]
+        return value
 
     def _execute(self, query):
-        cursor = self.connection.cursor()
-        cursor.execute(query)
+        with self.connection.cursor() as cursor:
+            cursor.execute(query)
         self.connection.commit()
 
     def _size_kb_to_mb(self, size):

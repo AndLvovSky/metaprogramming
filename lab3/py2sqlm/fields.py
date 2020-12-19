@@ -1,6 +1,5 @@
 import inspect
 from abc import ABCMeta, abstractmethod
-from py2sqlm.utils import camel_case_to_snake_case
 
 class DataBaseField(metaclass=ABCMeta):
     def __init__(self, column_name=None, primary_key=False):
@@ -39,6 +38,13 @@ class DataBaseField(metaclass=ABCMeta):
         if not value is None and not isinstance(value, bool):
             raise Exception(f'Primary key should have a boolean value')
         self._primary_key = value
+
+    @property
+    def definition(self):
+        definition = f'{self.column_name} {self.column_type}'
+        if self.primary_key:
+            definition += ' primary key'
+        return definition
 
     @property
     @abstractmethod
@@ -109,7 +115,7 @@ class OneToOne(DataBaseField):
         if mapping_column:
             self.mapping_column = mapping_column
         else:
-            self.mapping_column = camel_case_to_snake_case(self.mapping_class.__name__) + '_id'
+            self.mapping_column = self.mapping_class._table_name + '_id'
 
     @property
     def mapping_class(self):
@@ -138,6 +144,13 @@ class OneToOne(DataBaseField):
 
     def is_valid_value(self, value):
         return isinstance(value, self.mapping_class)
+
+    @property
+    def definition(self):
+        definition = super().definition
+        definition += f' references {self.mapping_class._table_name}' \
+            f' ({get_primary_key(self.mapping_class).name})'
+        return definition
 
 def get_class_database_fields(clz):
     fields = list(filter(lambda value: isinstance(value, DataBaseField), clz.__dict__.values()))
