@@ -1,7 +1,18 @@
 import logging
 import psycopg2
+from functools import wraps
 from py2sqlm.fields import get_class_database_fields, get_primary_key, ForeignKey, ManyRelation
 
+def transactional(f):
+    @wraps(f)
+    def wrapper(self, *args, **kwargs):
+        try:
+            f(self, *args, **kwargs)
+        except Exception as exc:
+            self.connection.rollback()
+            raise exc
+        self.connection.commit()
+    return wrapper
 
 class Py2SQL:
     @property
@@ -57,7 +68,11 @@ class Py2SQL:
         size = self._select_single(f"select pg_size_pretty(pg_total_relation_size('{name}'))")
         return self._size_kb_to_mb(size)
 
+    @transactional
     def save_object(self, obj):
+        self._save_object(obj)
+
+    def _save_object(self, obj):
         clz = obj.__class__
         self._check_table_exists_for_class(clz)
         fields = get_class_database_fields(clz)
@@ -69,13 +84,13 @@ class Py2SQL:
             objects_referenced_to += getattr(obj, field_referenced_to.name)
 
         for referenced_object in referenced_objects:
-            self.save_object(referenced_object)
+            self._save_object(referenced_object)
         if self._record_exists(obj):
             self._replace_object(obj)
         else:
             self._create_object(obj)
         for object_referenced_to in objects_referenced_to:
-            self.save_object(object_referenced_to)
+            self._save_object(object_referenced_to)
 
     def _create_object(self, obj):
         table_name, field_names, field_values = self._get_object_info(obj)
@@ -130,7 +145,11 @@ class Py2SQL:
         count = self._select_single(query)
         return count == 1
 
+    @transactional
     def save_class(self, clz):
+        self._save_class(clz)
+
+    def _save_class(self, clz):
         self._check_is_table(clz)
         table_name = clz._table_name
         if table_name in self.db_tables:
@@ -138,13 +157,17 @@ class Py2SQL:
         else:
             self._create_class(clz)
 
+    @transactional
     def save_hierarchy(self, root_class):
-        self._check_is_table(root_class)
-        fields = get_class_database_fields(root_class)
+        self._save_hierarchy(root_class)
+
+    def _save_hierarchy(self, clz):
+        self._check_is_table(clz)
+        fields = get_class_database_fields(clz)
         refererenced_tables = list(filter(lambda field: isinstance(field, ForeignKey), fields))
         for refererenced_table in refererenced_tables:
-            self.save_hierarchy(refererenced_table.mapping_class)
-        self.save_class(root_class)
+            self._save_hierarchy(refererenced_table.mapping_class)
+        self._save_class(clz)
 
     def _create_class(self, clz):
         fields = get_class_database_fields(clz)
@@ -194,7 +217,11 @@ class Py2SQL:
         logging.debug(query)
         self._execute(query)
 
+    @transactional
     def delete_object(self, obj):
+        self._delete_object(obj)
+
+    def _delete_object(self, obj):
         self._check_table_exists_for_class(obj.__class__)
         clz = obj.__class__
         primary_key = get_primary_key(clz)
@@ -204,7 +231,11 @@ class Py2SQL:
         logging.debug(query)
         self._execute(query)
 
+    @transactional
     def delete_class(self, clz):
+        self._delete_class(clz)
+
+    def _delete_class(self, clz):
         self._check_table_exists_for_class(clz)
         query = f"""
             drop table {clz._table_name}
@@ -212,13 +243,17 @@ class Py2SQL:
         logging.debug(query)
         self._execute(query)
 
+    @transactional
     def delete_hierarchy(self, root_class):
-        self._check_table_exists_for_class(root_class)
-        fields = get_class_database_fields(root_class)
+        self._delete_hierarchy(root_class)
+
+    def _delete_hierarchy(self, clz):
+        self._check_table_exists_for_class(clz)
+        fields = get_class_database_fields(clz)
         refererenced_tables = list(filter(lambda field: isinstance(field, ForeignKey), fields))
-        self.delete_class(root_class)
+        self._delete_class(clz)
         for refererenced_table in refererenced_tables:
-            self.delete_hierarchy(refererenced_table.mapping_class)
+            self._delete_hierarchy(refererenced_table.mapping_class)
 
     def _select_all(self, query):
         with self.connection.cursor() as cursor:
@@ -235,7 +270,6 @@ class Py2SQL:
     def _execute(self, query):
         with self.connection.cursor() as cursor:
             cursor.execute(query)
-        self.connection.commit()
 
     def _size_kb_to_mb(self, size):
         return float(size.split(' ')[0]) / 1000
