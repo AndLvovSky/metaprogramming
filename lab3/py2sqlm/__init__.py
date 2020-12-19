@@ -1,5 +1,6 @@
 import psycopg2
 import logging
+from py2sqlm.fields import get_class_database_fields, get_primary_key
 
 class Py2SQL:
     @property
@@ -55,6 +56,49 @@ class Py2SQL:
         size = self._select_single(f"select pg_size_pretty(pg_total_relation_size('{name}'))")
         return self._size_kb_to_mb(size)
 
+    def save_object(self, object):
+        clz = object.__class__
+        self._check_is_table(clz)
+        primary_key = get_primary_key(clz)
+        if self._record_exists(clz._table_name, primary_key.name, getattr(object, primary_key.name)):
+            self._replace_object(object)
+        else:
+            self._create_object(object)
+
+    def _create_object(self, object):
+        table_name, field_names, field_values = self._get_object_info(object)
+        query = f"""
+            insert into {table_name} ({', '.join(field_names)}) 
+            values ({', '.join([str(field_value) for field_value in field_values])})
+        """
+        logging.debug(query)
+        self._execute(query)
+
+    def _replace_object(self, object):
+        table_name, field_names, field_values = self._get_object_info(object)
+        query = f"""
+            update {table_name}
+            set {', '.join([f'{field[0]} = {field[1]}' for field in zip(field_names, field_values)])}
+        """
+        logging.debug(query)
+        self._execute(query)
+
+    def _get_object_info(self, object):
+        clz = object.__class__
+        table_name = clz._table_name
+        fields = get_class_database_fields(clz)
+        field_names = [field.name for field in fields]
+        field_values = [getattr(object, field.name) for field in fields]
+        return (table_name, field_names, field_values)
+
+    def _record_exists(self, table, id_name, id_value):
+        query = f"""
+            select count(*) from {table} where {id_name} = {id_value}
+        """
+        logging.debug(query)
+        count = self._select_single(query)
+        return count == 1
+
     def _select_all(self, query):
         cursor = self.connection.cursor()
         cursor.execute(query)
@@ -65,9 +109,18 @@ class Py2SQL:
         cursor.execute(query)
         return cursor.fetchone()[0]
 
+    def _execute(self, query):
+        cursor = self.connection.cursor()
+        cursor.execute(query)
+        self.connection.commit()
+
     def _size_kb_to_mb(self, size):
         return float(size.split(' ')[0]) / 1000
 
     def _check_table_exists(self, name):
         if name not in self.db_tables:
             raise Exception(f'Table {name} does not exist in schema public')
+
+    def _check_is_table(self, clz):
+        if not hasattr(clz, '_table_name'):
+            raise Exception('Object class should have @table decorator')

@@ -102,9 +102,6 @@ class TextField(DataBaseField):
     def is_valid_value(self, value):
         return isinstance(value, str) and len(value) < self.max_length
 
-def get_class_database_fields(clz):
-    return list(filter(lambda entry: isinstance(entry[1], DataBaseField), clz.__dict__.items()))
-
 class OneToOne(DataBaseField):
     def __init__(self, mapping_class, mapping_column=None, **kwargs):
         super().__init__(**kwargs)
@@ -136,9 +133,21 @@ class OneToOne(DataBaseField):
 
     @property
     def column_type(self):
-        fields = get_class_database_fields(self.mapping_class)
-        primary_key = list(filter(lambda field: field[1].primary_key, fields))[0][1]
+        primary_key = get_primary_key(self.mapping_class)
         return primary_key.column_type
 
     def is_valid_value(self, value):
         return isinstance(value, self.mapping_class)
+
+def get_class_database_fields(clz):
+    fields = list(filter(lambda value: isinstance(value, DataBaseField), clz.__dict__.values()))
+    if len(fields) < 1:
+        raise Exception('Table should have at least one column')
+    return fields
+
+def get_primary_key(clz):
+    fields = get_class_database_fields(clz)
+    primary_keys = list(filter(lambda field: field.primary_key, fields))
+    if len(primary_keys) != 1:
+        raise Exception('Table should have exactly one primary key')
+    return primary_keys[0]
