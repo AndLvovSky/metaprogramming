@@ -90,7 +90,7 @@ class Py2SQL:
 
     def _record_exists(self, obj):
         clz = obj.__class__
-        self._check_is_table(clz)
+        self._check_table_exists_for_class(clz)
         primary_key = get_primary_key(clz)
         query = f"""
             select count(*) from {table} where {id_name} = {id_value}
@@ -164,11 +164,19 @@ class Py2SQL:
         self._execute(query)
 
     def delete_object(self, obj):
-        self._check_is_table(obj)
+        self._check_table_exists_for_class(obj)
         clz = obj.__class__
         primary_key = get_primary_key(clz)
         query = f"""
             delete from {clz._table_name} where id = {getattr(obj, primary_key.name)}
+        """
+        logging.debug(query)
+        self._execute(query)
+
+    def delete_class(self, clz):
+        self._check_table_exists_for_class(clz)
+        query = f"""
+            drop table {clz._table_name}
         """
         logging.debug(query)
         self._execute(query)
@@ -200,3 +208,8 @@ class Py2SQL:
     def _check_is_table(self, clz):
         if not hasattr(clz, '_table_name'):
             raise Exception('Object class should have @table decorator')
+
+    def _check_table_exists_for_class(self, clz):
+        self._check_is_table(clz)
+        if clz._table_name not in set(self.db_tables):
+            raise Exception(f'Table {clz._table_name} does not exist')
