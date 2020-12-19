@@ -5,6 +5,15 @@ from functools import wraps
 from py2sqlm.fields import *
 
 def transactional(f):
+    """
+    Decorator for transactional methods.
+    Wrapped method is executed in transaction and
+    is rollbacked in case of a failure.
+
+    :param f: transactional method
+    :return: transactional wrapper
+    """
+
     @wraps(f)
     def wrapper(self, *args, **kwargs):
         try:
@@ -16,38 +25,65 @@ def transactional(f):
     return wrapper
 
 class Py2SQL:
+    """
+        Python to PostgreSQL mapper
+    """
+
     @property
     def connection(self):
+        """
+        Database connection property
+        """
+
         if not hasattr(self, '_connection'):
             raise Exception('No connection is established, call db_connect first')
         return self._connection
 
     def db_connect(self, **config):
+        """
+        Establish connection with database.
+        Possible config fields: host, database, user, password, port
+        """
         if hasattr(self, '_connection'):
             raise Exception('Connection is already established')
         self._connection = psycopg2.connect(**config)
         logging.info('Database connection is established')
 
     def db_disconnect(self):
+        """
+        Close database connection
+        """
         self.connection.close()
         del self._connection
         logging.info('Database connection is closed')
 
     @property
     def db_engine(self):
+        """
+        :return: DBMS name and version
+        """
         return self._select_single('select version()')
 
     @property
     def db_name(self):
+        """
+        :return: current database name
+        """
         return self._select_single('select current_database()')
 
     @property
     def db_size(self):
+        """
+        :return: database size in Mb
+        """
         size = self._select_single(f"select pg_size_pretty(pg_database_size('{self.db_name}'))")
         return self._size_kb_to_mb(size)
 
     @property
     def db_tables(self):
+        """
+        :return: all database table names in public schema
+        """
         tables = self._select_all("""
             select tablename 
             from pg_catalog.pg_tables
@@ -56,6 +92,9 @@ class Py2SQL:
         return sorted([table[0] for table in tables])
 
     def db_table_structure(self, name):
+        """
+        :return: database sctructure as list of tuples (id, name, type)
+        """
         self._check_table_exists(name)
         return self._select_all(f"""
             select ordinal_position, column_name, data_type 
@@ -65,12 +104,20 @@ class Py2SQL:
         """)
 
     def db_table_size(self, name):
+        """
+        :param name: table name
+        :return: database table size in Mb
+        """
         self._check_table_exists(name)
         size = self._select_single(f"select pg_size_pretty(pg_total_relation_size('{name}'))")
         return self._size_kb_to_mb(size)
 
     @transactional
     def save_object(self, obj):
+        """
+        Create or replace object and child objects in database
+        :param obj: object to save
+        """
         self._save_object(obj)
 
     def _save_object(self, obj):
@@ -150,6 +197,10 @@ class Py2SQL:
 
     @transactional
     def save_class(self, clz):
+        """
+        Create or replace class in database
+        :param clz: class to save
+        """
         self._save_class(clz)
 
     def _save_class(self, clz):
@@ -162,6 +213,10 @@ class Py2SQL:
 
     @transactional
     def save_hierarchy(self, root_class):
+        """
+        Create or replace class and child classes in database
+        :param root_class: class to save
+        """
         self._save_hierarchy(root_class)
 
     def _save_hierarchy(self, clz):
@@ -222,6 +277,10 @@ class Py2SQL:
 
     @transactional
     def delete_object(self, obj):
+        """
+        Delete object from database if it exists
+        :param obj: object to delete
+        """
         self._delete_object(obj)
 
     def _delete_object(self, obj):
@@ -236,6 +295,10 @@ class Py2SQL:
 
     @transactional
     def delete_class(self, clz):
+        """
+        Delete object from database if it exists else raise exception
+        :param clz: class to delete
+        """
         self._delete_class(clz)
 
     def _delete_class(self, clz):
@@ -248,6 +311,10 @@ class Py2SQL:
 
     @transactional
     def delete_hierarchy(self, root_class):
+        """
+        Delete class and child classes from database if they exist else raise exception
+        :param root_class: root class to start deletion
+        """
         self._delete_hierarchy(root_class)
 
     def _delete_hierarchy(self, clz):
