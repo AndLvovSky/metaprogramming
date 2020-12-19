@@ -107,13 +107,13 @@ class Py2SQL:
         else:
             self._create_class(clz)
 
-    def save_hierarchy(self, clz):
-        self._check_is_table(clz)
-        fields = get_class_database_fields(clz)
+    def save_hierarchy(self, root_class):
+        self._check_is_table(root_class)
+        fields = get_class_database_fields(root_class)
         refererenced_tables = list(filter(lambda field: isinstance(field, ForeignKey), fields))
         for refererenced_table in refererenced_tables:
             self.save_hierarchy(refererenced_table.mapping_class)
-        self.save_class(clz)
+        self.save_class(root_class)
 
     def _create_class(self, clz):
         fields = get_class_database_fields(clz)
@@ -164,7 +164,7 @@ class Py2SQL:
         self._execute(query)
 
     def delete_object(self, obj):
-        self._check_table_exists_for_class(obj)
+        self._check_table_exists_for_class(obj.__class__)
         clz = obj.__class__
         primary_key = get_primary_key(clz)
         query = f"""
@@ -180,6 +180,14 @@ class Py2SQL:
         """
         logging.debug(query)
         self._execute(query)
+
+    def delete_hierarchy(self, root_class):
+        self._check_table_exists_for_class(root_class)
+        fields = get_class_database_fields(root_class)
+        refererenced_tables = list(filter(lambda field: isinstance(field, ForeignKey), fields))
+        self.delete_class(root_class)
+        for refererenced_table in refererenced_tables:
+            self.delete_hierarchy(refererenced_table.mapping_class)
 
     def _select_all(self, query):
         with self.connection.cursor() as cursor:
@@ -211,5 +219,4 @@ class Py2SQL:
 
     def _check_table_exists_for_class(self, clz):
         self._check_is_table(clz)
-        if clz._table_name not in set(self.db_tables):
-            raise Exception(f'Table {clz._table_name} does not exist')
+        self._check_table_exists(clz._table_name)
