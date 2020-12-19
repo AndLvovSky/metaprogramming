@@ -3,7 +3,7 @@ import setuptools
 
 setuptools.setup(
     name="py2sqlm-andlvovsky",
-    version="1.0.0",
+    version="1.0.1",
     author="Viktor Ilvovskyi",
     author_email="viktorilvovskyi@gmail.com",
     description="Python 3 to PostgreSQL mapper",
