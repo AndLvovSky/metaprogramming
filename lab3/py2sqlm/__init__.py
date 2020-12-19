@@ -1,6 +1,6 @@
 import psycopg2
 import logging
-from py2sqlm.fields import get_class_database_fields, get_primary_key
+from py2sqlm.fields import get_class_database_fields, get_primary_key, ForeignKey
 
 class Py2SQL:
     @property
@@ -106,6 +106,14 @@ class Py2SQL:
             self._update_class(clz)
         else:
             self._create_class(clz)
+
+    def save_hierarchy(self, clz):
+        self._check_is_table(clz)
+        fields = get_class_database_fields(clz)
+        refererenced_tables = list(filter(lambda field: isinstance(field, ForeignKey), fields))
+        for refererenced_table in refererenced_tables:
+            self.save_hierarchy(refererenced_table.mapping_class)
+        self.save_class(clz)
 
     def _create_class(self, clz):
         fields = get_class_database_fields(clz)

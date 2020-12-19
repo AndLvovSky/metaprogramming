@@ -108,7 +108,7 @@ class TextField(DataBaseField):
     def is_valid_value(self, value):
         return isinstance(value, str) and len(value) < self.max_length
 
-class OneToOne(DataBaseField):
+class ForeignKey(DataBaseField):
     def __init__(self, mapping_class, mapping_column=None, **kwargs):
         super().__init__(**kwargs)
         self.mapping_class = mapping_class
