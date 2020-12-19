@@ -53,7 +53,7 @@ class Py2SQL:
             from pg_catalog.pg_tables
             where schemaname = 'public'
         """)
-        return [table[0] for table in tables]
+        return sorted([table[0] for table in tables])
 
     def db_table_structure(self, name):
         self._check_table_exists(name)

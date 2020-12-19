@@ -165,7 +165,7 @@ class ForeignKey(DataBaseField):
 
     @property
     def definition(self):
-        definition = super().definition
+        definition = f'{self.column_name}_id {self.column_type}'
         definition += f' references {self.mapping_class._table_name}' \
             f' ({get_primary_key(self.mapping_class).name})'
         return definition
