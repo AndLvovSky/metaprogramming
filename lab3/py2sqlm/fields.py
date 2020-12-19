@@ -69,7 +69,7 @@ class FloatField(DataBaseField):
         return 'real'
 
     def is_valid_value(self, value):
-        return isinstance(value, float)
+        return isinstance(value, float) or isinstance(value, int)
 
 class BoolField(DataBaseField):
     @property

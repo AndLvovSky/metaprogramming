@@ -56,17 +56,14 @@ class Py2SQL:
         size = self._select_single(f"select pg_size_pretty(pg_total_relation_size('{name}'))")
         return self._size_kb_to_mb(size)
 
-    def save_object(self, object):
-        clz = object.__class__
-        self._check_is_table(clz)
-        primary_key = get_primary_key(clz)
-        if self._record_exists(clz._table_name, primary_key.name, getattr(object, primary_key.name)):
-            self._replace_object(object)
+    def save_object(self, obj):
+        if self._record_exists(obj):
+            self._replace_object(obj)
         else:
-            self._create_object(object)
+            self._create_object(obj)
 
-    def _create_object(self, object):
-        table_name, field_names, field_values = self._get_object_info(object)
+    def _create_object(self, obj):
+        table_name, field_names, field_values = self._get_object_info(obj)
         query = f"""
             insert into {table_name} ({', '.join(field_names)}) 
             values ({', '.join([str(field_value) for field_value in field_values])})
@@ -74,8 +71,8 @@ class Py2SQL:
         logging.debug(query)
         self._execute(query)
 
-    def _replace_object(self, object):
-        table_name, field_names, field_values = self._get_object_info(object)
+    def _replace_object(self, obj):
+        table_name, field_names, field_values = self._get_object_info(obj)
         query = f"""
             update {table_name}
             set {', '.join([f'{field[0]} = {field[1]}' for field in zip(field_names, field_values)])}
@@ -83,15 +80,18 @@ class Py2SQL:
         logging.debug(query)
         self._execute(query)
 
-    def _get_object_info(self, object):
-        clz = object.__class__
+    def _get_object_info(self, obj):
+        clz = obj.__class__
         table_name = clz._table_name
         fields = get_class_database_fields(clz)
         field_names = [field.name for field in fields]
-        field_values = [getattr(object, field.name) for field in fields]
+        field_values = [getattr(obj, field.name) for field in fields]
         return (table_name, field_names, field_values)
 
-    def _record_exists(self, table, id_name, id_value):
+    def _record_exists(self, obj):
+        clz = obj.__class__
+        self._check_is_table(clz)
+        primary_key = get_primary_key(clz)
         query = f"""
             select count(*) from {table} where {id_name} = {id_value}
         """
@@ -159,6 +159,16 @@ class Py2SQL:
         query = f"""
             alter table {clz._table_name}
             {delimiter.join([f'drop column {field_name}' for field_name in field_names])}
+        """
+        logging.debug(query)
+        self._execute(query)
+
+    def delete_object(self, obj):
+        self._check_is_table(obj)
+        clz = obj.__class__
+        primary_key = get_primary_key(clz)
+        query = f"""
+            delete from {clz._table_name} where id = {getattr(obj, primary_key.name)}
         """
         logging.debug(query)
         self._execute(query)
