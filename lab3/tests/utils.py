@@ -1,8 +1,10 @@
 import psycopg2
 import logging
 
+
 def _get_connection(db_config):
     return psycopg2.connect(**db_config)
+
 
 def execute(db_config, query):
     logging.debug('Test query:')
@@ -13,6 +15,7 @@ def execute(db_config, query):
     connection.commit()
     connection.close()
 
+
 def select_all(db_config, query):
     connection = _get_connection(db_config)
     with connection.cursor() as cursor:
@@ -20,6 +23,7 @@ def select_all(db_config, query):
         values = cursor.fetchall()
     connection.close()
     return values
+
 
 def get_table_records(db_config, table_name, fields):
     query = f"""
@@ -30,12 +34,14 @@ def get_table_records(db_config, table_name, fields):
     logging.debug(query)
     return select_all(db_config, query)
 
+
 def drop_all_tables(db_config):
     query = """
         drop schema public cascade;
         create schema public
     """
     execute(db_config, query)
+
 
 def table_structure_matches(expected, actual):
     actual = set([(table[1], table[2]) for table in actual])

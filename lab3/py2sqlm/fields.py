@@ -2,6 +2,7 @@ import inspect
 from array import ArrayType
 from abc import ABCMeta, abstractmethod
 
+
 class DatabaseField(metaclass=ABCMeta):
     """
     Database field descriptor
@@ -95,6 +96,7 @@ class DatabaseField(metaclass=ABCMeta):
         """
         pass
 
+
 class IntField(DatabaseField):
     """
     Integer database field descriptor
@@ -106,6 +108,7 @@ class IntField(DatabaseField):
 
     def is_valid_value(self, value):
         return isinstance(value, int)
+
 
 class FloatField(DatabaseField):
     """
@@ -119,6 +122,7 @@ class FloatField(DatabaseField):
     def is_valid_value(self, value):
         return isinstance(value, float) or isinstance(value, int)
 
+
 class BoolField(DatabaseField):
     """
     Boolean database field descriptor
@@ -130,6 +134,7 @@ class BoolField(DatabaseField):
 
     def is_valid_value(self, value):
         return isinstance(value, bool)
+
 
 class TextField(DatabaseField):
     """
@@ -176,6 +181,7 @@ class TextField(DatabaseField):
     def is_valid_value(self, value):
         return isinstance(value, str) and len(value) < self.max_length
 
+
 class JsonbField(DatabaseField):
     """
     Jsonb database field descriptor.
@@ -200,6 +206,7 @@ class JsonbField(DatabaseField):
 
     def is_valid_value(self, value):
         return self.is_type_supported(value)
+
 
 class ForeignKey(DatabaseField):
     """
@@ -272,6 +279,7 @@ class ForeignKey(DatabaseField):
             f' ({get_primary_key(self.mapping_class).name})'
         return definition
 
+
 class ManyRelation:
     """
     Many relation descriptor.
@@ -342,8 +350,10 @@ def get_class_database_fields(clz):
         raise Exception('Table should have at least one column')
     return fields
 
+
 def _is_database_field(field):
     return isinstance(field, DatabaseField) or isinstance(field, ForeignKey)
+
 
 def get_primary_key(clz):
     """

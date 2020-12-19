@@ -2,6 +2,7 @@ import inspect
 from functools import wraps
 from py2sqlm.utils import camel_case_to_snake_case
 
+
 def table(param):
     """
     Decorator for tables.

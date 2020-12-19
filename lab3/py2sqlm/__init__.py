@@ -4,6 +4,7 @@ import json
 from functools import wraps
 from py2sqlm.fields import *
 
+
 def transactional(f):
     """
     Decorator for transactional methods.
@@ -23,6 +24,7 @@ def transactional(f):
             raise exc
         self.connection.commit()
     return wrapper
+
 
 class Py2SQL:
     """
@@ -341,14 +343,16 @@ class Py2SQL:
         with self.connection.cursor() as cursor:
             cursor.execute(query)
 
-    def _size_kb_to_mb(self, size):
+    @staticmethod
+    def _size_kb_to_mb(size):
         return float(size.split(' ')[0]) / 1000
 
     def _check_table_exists(self, name):
         if name not in self.db_tables:
             raise Exception(f'Table {name} does not exist in schema public')
 
-    def _check_is_table(self, clz):
+    @staticmethod
+    def _check_is_table(clz):
         if not hasattr(clz, '_table_name'):
             raise Exception('Object class should have @table decorator')
 
@@ -356,7 +360,8 @@ class Py2SQL:
         self._check_is_table(clz)
         self._check_table_exists(clz._table_name)
 
-    def _format_field(self, value):
+    @staticmethod
+    def _format_field(value):
         if isinstance(value, str):
             return f"'{value}'"
         if value == None:

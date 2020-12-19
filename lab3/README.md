@@ -24,3 +24,13 @@ mkdir docs
 cd docs
 python3 -m pydoc -w  ../py2sqlm/*.py
 ```
+### Compile pypi package
+```
+pip3 install twine
+python3 setup.py sdist bdist_wheel
+python3 -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*
+```
+### Install package
+```
+pip3 install py2sqlm-andlvovsky==1.0.0
+```
