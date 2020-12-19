@@ -21,7 +21,7 @@ class DatabaseField(metaclass=ABCMeta):
         """
         Validate and set database field using is_valid_value abstract method
         """
-        if not self.is_valid_value(value):
+        if value is not None and not self.is_valid_value(value):
             raise Exception(f'Value {value} for column {self.column_name} is invalid')
         instance.__dict__['_' + self.name] = value
 

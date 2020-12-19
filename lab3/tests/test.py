@@ -38,13 +38,15 @@ class City:
     name = TextField(100)
     capital = BoolField()
     geo_info = ForeignKey(GeoInfo)
+    geo_info_new = ForeignKey(GeoInfo, mapping_column='geo_info_new_id')
     citizens = ManyRelation(Person)
 
-    def __init__(self, id, name, capital, geo_info, citizens):
+    def __init__(self, id, name, capital, geo_info, geo_info_new, citizens):
         self.id = id
         self.name = name
         self.capital = capital
         self.geo_info = geo_info
+        self.geo_info_new = geo_info_new
         self.citizens = citizens
 
 
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     logging.info(f'Table geo_info structure: {db_table_structure}')
     assert test_utils.table_structure_matches({('id', 'bigint'), ('area', 'real'), ('tags', 'jsonb')}, db_table_structure)
 
-    geo_info = GeoInfo(5, 32, {'density': 75, 'high': True})
+    geo_info = GeoInfo(5, None, {'density': 75, 'high': True})
     py2sql.save_object(geo_info)
 
     geo_info_select = test_utils.get_table_records(db_config, 'geo_info', ['id', 'area', 'tags'])
@@ -110,7 +112,7 @@ if __name__ == '__main__':
     assert len(geo_info_select) == 1
     selected_geo_info = geo_info_select[0]
     assert selected_geo_info[0] == 5
-    assert selected_geo_info[1] == 32.0
+    assert selected_geo_info[1] == None
     assert selected_geo_info[2] == {'density': 75, 'high': True}
 
     py2sql.delete_object(geo_info)
@@ -133,7 +135,7 @@ if __name__ == '__main__':
 
     db_table_structure = py2sql.db_table_structure('city')
     logging.info(f'Table city structure: {db_table_structure}')
-    expected_columns = {('id', 'bigint'), ('name', 'character varying'), ('capital', 'boolean'), ('geo_info_id', 'bigint')}
+    expected_columns = {('id', 'bigint'), ('name', 'character varying'), ('capital', 'boolean'), ('geo_info_id', 'bigint'), ('geo_info_new_id', 'bigint')}
     assert test_utils.table_structure_matches(expected_columns, db_table_structure)
 
     db_table_structure = py2sql.db_table_structure('geo_info')
@@ -144,10 +146,10 @@ if __name__ == '__main__':
 
     geo_info = GeoInfo(5, 32, {'density': 75, 'high': True})
     citizens = [Person(1, 'adam', 123), Person(2, 'craig', 24)]
-    city = City(123, 'Florence', False, geo_info, citizens)
+    city = City(123, 'Florence', False, geo_info, None, citizens)
     py2sql.save_object(city)
 
-    city_select = test_utils.get_table_records(db_config, 'city', ['id', 'name', 'capital', 'geo_info_id'])
+    city_select = test_utils.get_table_records(db_config, 'city', ['id', 'name', 'capital', 'geo_info_id', 'geo_info_new_id'])
     logging.info(f'City records: {city_select}')
     assert len(city_select) == 1
     selected_city = city_select[0]
@@ -155,6 +157,7 @@ if __name__ == '__main__':
     assert selected_city[1] == 'Florence'
     assert selected_city[2] == False
     assert selected_city[3] == 5
+    assert selected_city[4] == None
 
     geo_info_select = test_utils.get_table_records(db_config, 'geo_info', ['id', 'area', 'tags'])
     logging.info(f'Geo info records: {geo_info_select}')
@@ -184,7 +187,7 @@ if __name__ == '__main__':
     assert len(geo_info_select) == 1
     assert geo_info_select[0][1] == 34.0
 
-    city_select = test_utils.get_table_records(db_config, 'city', ['id', 'name', 'capital', 'geo_info_id'])
+    city_select = test_utils.get_table_records(db_config, 'city', ['id', 'name', 'capital', 'geo_info_id', 'geo_info_new_id'])
     logging.info(f'City records: {city_select}')
     assert len(city_select) == 1
     assert city_select[0][2] == True

@@ -123,6 +123,8 @@ class Py2SQL:
         self._save_object(obj)
 
     def _save_object(self, obj):
+        if obj is None:
+            return
         clz = obj.__class__
         self._check_table_exists_for_class(clz)
         fields = get_class_database_fields(clz)
@@ -298,15 +300,15 @@ class Py2SQL:
     @transactional
     def delete_class(self, clz):
         """
-        Delete object from database if it exists else raise exception
+        Delete object from database if it exists
         :param clz: class to delete
         """
         self._delete_class(clz)
 
     def _delete_class(self, clz):
-        self._check_table_exists_for_class(clz)
+        self._check_is_table(clz)
         query = f"""
-            drop table {clz._table_name}
+            drop table if exists {clz._table_name} 
         """
         logging.debug(query)
         self._execute(query)
@@ -320,7 +322,7 @@ class Py2SQL:
         self._delete_hierarchy(root_class)
 
     def _delete_hierarchy(self, clz):
-        self._check_table_exists_for_class(clz)
+        self._check_is_table(clz)
         fields = get_class_database_fields(clz)
         refererenced_tables = list(filter(lambda field: isinstance(field, ForeignKey), fields))
         self._delete_class(clz)
@@ -354,7 +356,7 @@ class Py2SQL:
     @staticmethod
     def _check_is_table(clz):
         if not hasattr(clz, '_table_name'):
-            raise Exception('Object class should have @table decorator')
+            raise Exception(f'Object class {clz.__name__} should have @table decorator')
 
     def _check_table_exists_for_class(self, clz):
         self._check_is_table(clz)
