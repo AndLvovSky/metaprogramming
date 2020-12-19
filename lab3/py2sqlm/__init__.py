@@ -1,6 +1,7 @@
-import psycopg2
 import logging
-from py2sqlm.fields import get_class_database_fields, get_primary_key, ForeignKey
+import psycopg2
+from py2sqlm.fields import get_class_database_fields, get_primary_key, ForeignKey, ManyRelation
+
 
 class Py2SQL:
     @property
@@ -57,16 +58,30 @@ class Py2SQL:
         return self._size_kb_to_mb(size)
 
     def save_object(self, obj):
+        clz = obj.__class__
+        self._check_table_exists_for_class(clz)
+        fields = get_class_database_fields(clz)
+        referenced_fields = list(filter(lambda field: isinstance(field, ForeignKey), fields))
+        referenced_objects = [getattr(obj, referenced_table.name) for referenced_table in referenced_fields]
+        fields_referenced_to = list(filter(lambda field: isinstance(field, ManyRelation), clz.__dict__.values()))
+        objects_referenced_to = []
+        for field_referenced_to in fields_referenced_to:
+            objects_referenced_to += getattr(obj, field_referenced_to.name)
+
+        for referenced_object in referenced_objects:
+            self.save_object(referenced_object)
         if self._record_exists(obj):
             self._replace_object(obj)
         else:
             self._create_object(obj)
+        for object_referenced_to in objects_referenced_to:
+            self.save_object(object_referenced_to)
 
     def _create_object(self, obj):
         table_name, field_names, field_values = self._get_object_info(obj)
         query = f"""
             insert into {table_name} ({', '.join(field_names)}) 
-            values ({', '.join([str(field_value) for field_value in field_values])})
+            values ({', '.join([self._format_field(field_value) for field_value in field_values])})
         """
         logging.debug(query)
         self._execute(query)
@@ -75,7 +90,7 @@ class Py2SQL:
         table_name, field_names, field_values = self._get_object_info(obj)
         query = f"""
             update {table_name}
-            set {', '.join([f'{field[0]} = {field[1]}' for field in zip(field_names, field_values)])}
+            set {', '.join([f'{field[0]} = {self._format_field(field[1])}' for field in zip(field_names, field_values)])}
         """
         logging.debug(query)
         self._execute(query)
@@ -84,16 +99,32 @@ class Py2SQL:
         clz = obj.__class__
         table_name = clz._table_name
         fields = get_class_database_fields(clz)
-        field_names = [field.name for field in fields]
-        field_values = [getattr(obj, field.name) for field in fields]
+        field_names = [self._get_table_column_name(obj, field) for field in fields]
+        field_values = [self._get_table_column_value(obj, field) for field in fields]
         return (table_name, field_names, field_values)
+
+    def _get_table_column_name(self, obj, field):
+        if isinstance(field, ForeignKey):
+            return field.mapping_column
+        return field.name
+
+    def _get_table_column_value(self, obj, field):
+        if not isinstance(field, ForeignKey):
+            return getattr(obj, field.name)
+        child_obj = getattr(obj, field.name)
+        if not child_obj:
+            return
+        return getattr(child_obj, get_primary_key(child_obj.__class__).name)
 
     def _record_exists(self, obj):
         clz = obj.__class__
         self._check_table_exists_for_class(clz)
         primary_key = get_primary_key(clz)
+        table_name = clz._table_name
+        id_name = primary_key.name
+        id_value = getattr(obj, id_name)
         query = f"""
-            select count(*) from {table} where {id_name} = {id_value}
+            select count(*) from {table_name} where {id_name} = {id_value}
         """
         logging.debug(query)
         count = self._select_single(query)
@@ -220,3 +251,10 @@ class Py2SQL:
     def _check_table_exists_for_class(self, clz):
         self._check_is_table(clz)
         self._check_table_exists(clz._table_name)
+
+    def _format_field(self, value):
+        if isinstance(value, str):
+            return f"'{value}'"
+        if value == None:
+            return 'null'
+        return str(value)

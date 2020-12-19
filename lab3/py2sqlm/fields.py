@@ -164,3 +164,55 @@ def get_primary_key(clz):
     if len(primary_keys) != 1:
         raise Exception('Table should have exactly one primary key')
     return primary_keys[0]
+
+class ManyRelation:
+    def __init__(self, mapping_class):
+        self.mapping_class = mapping_class
+
+    def __set__(self, instance, value):
+        if not value:
+            value = []
+        if not isinstance(value, list) or not self._is_all_mapping_objects(value):
+            raise Exception(f'{self.name} should be a list of {self.mapping_class.__name__}')
+        instance.__dict__['_' + self.name] = value
+
+    def __get__(self, instance, owner):
+        return instance.__dict__['_' + self.name]
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    @property
+    def mapping_class(self):
+        return self._mapping_class
+
+    @mapping_class.setter
+    def mapping_class(self, value):
+        if not inspect.isclass(value):
+            raise Exception(f'Invalid mapping class: {value}')
+        self._mapping_class = value
+
+    def _is_all_mapping_objects(self, obj_list):
+        if not obj_list:
+            return True
+        for obj in obj_list:
+            if not isinstance(obj, self.mapping_class):
+                return False
+        return True
+
+
+def get_class_database_fields(clz):
+    fields = list(filter(_is_database_field, clz.__dict__.values()))
+    if len(fields) < 1:
+        raise Exception('Table should have at least one column')
+    return fields
+
+def _is_database_field(field):
+    return isinstance(field, DataBaseField) or isinstance(field, ForeignKey)
+
+def get_primary_key(clz):
+    fields = get_class_database_fields(clz)
+    primary_keys = list(filter(lambda field: hasattr(field, 'primary_key') and field.primary_key, fields))
+    if len(primary_keys) != 1:
+        raise Exception('Table should have exactly one primary key')
+    return primary_keys[0]
