@@ -1,4 +1,5 @@
 import inspect
+from array import ArrayType
 from abc import ABCMeta, abstractmethod
 
 class DataBaseField(metaclass=ABCMeta):
@@ -107,6 +108,23 @@ class TextField(DataBaseField):
 
     def is_valid_value(self, value):
         return isinstance(value, str) and len(value) < self.max_length
+
+class JsonbField(DataBaseField):
+    valid_types = {list, tuple, dict, set, frozenset, ArrayType}
+
+    @staticmethod
+    def is_type_supported(type):
+        for valid_type in JsonbField.valid_types:
+            if isinstance(type, valid_type):
+                return True
+        return False
+
+    @property
+    def column_type(self):
+        return 'jsonb'
+
+    def is_valid_value(self, value):
+        return self.is_type_supported(value)
 
 class ForeignKey(DataBaseField):
     def __init__(self, mapping_class, mapping_column=None, **kwargs):

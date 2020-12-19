@@ -1,7 +1,8 @@
 import logging
 import psycopg2
+import json
 from functools import wraps
-from py2sqlm.fields import get_class_database_fields, get_primary_key, ForeignKey, ManyRelation
+from py2sqlm.fields import *
 
 def transactional(f):
     @wraps(f)
@@ -103,9 +104,11 @@ class Py2SQL:
 
     def _replace_object(self, obj):
         table_name, field_names, field_values = self._get_object_info(obj)
+        primary_key = get_primary_key(obj.__class__)
         query = f"""
             update {table_name}
             set {', '.join([f'{field[0]} = {self._format_field(field[1])}' for field in zip(field_names, field_values)])}
+            where {primary_key.name} = {getattr(obj, primary_key.name)}
         """
         logging.debug(query)
         self._execute(query)
@@ -291,4 +294,10 @@ class Py2SQL:
             return f"'{value}'"
         if value == None:
             return 'null'
+        if JsonbField.is_type_supported(value):
+            if isinstance(value, set) or isinstance(value, frozenset):
+                value = list(value)
+            if isinstance(value, ArrayType):
+                value = value.tolist()
+            return f"'{json.dumps(value)}'"
         return str(value)
