@@ -5,7 +5,7 @@ from py2sqlm import Py2SQL
 from py2sqlm.fields import *
 from py2sqlm.table import table
 
-logging.basicConfig(level='DEBUG')
+logging.basicConfig(level='INFO')
 
 
 @table
@@ -196,6 +196,14 @@ if __name__ == '__main__':
     logging.info(f'Person records: {person_select}')
     assert len(person_select) == 2
     assert person_select[0][1] == 'bob'
+
+    db_size = py2sql.db_size
+    logging.info(f'Database size: {py2sql.db_size} Mb')
+    assert db_size > 0
+
+    geo_info_table_size = py2sql.db_table_size("geo_info")
+    logging.info(f'Geo info table size: {geo_info_table_size} Mb')
+    assert geo_info_table_size > 0
 
     py2sql.delete_hierarchy(City)
 
