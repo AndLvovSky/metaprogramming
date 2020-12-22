@@ -334,7 +334,7 @@ class ManyRelation:
         if not obj_list:
             return True
         for obj in obj_list:
-            if not isinstance(obj, self.mapping_class):
+            if obj is not None and not isinstance(obj, self.mapping_class):
                 return False
         return True
 
