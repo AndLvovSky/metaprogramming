@@ -1,0 +1,13 @@
+# IntelliJ project files
+.idea
+*.iml
+out
+gen
+*.egg-info
+
+#pydoc
+**/docs/**
+
+#pypi
+**/build/**
+**/dist/**
